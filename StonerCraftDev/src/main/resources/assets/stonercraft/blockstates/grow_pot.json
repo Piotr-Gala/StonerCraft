@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": { "model": "stonercraft:block/grow_pot",
+      "render_type": "cutout"
+    }
+  }
+}

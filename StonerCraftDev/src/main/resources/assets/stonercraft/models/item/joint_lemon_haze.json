@@ -1,0 +1,14 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "stonercraft:item/joint"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "stonercraft:lit": 1
+      },
+      "model": "stonercraft:item/lighted_joint"
+    }
+  ]
+}
