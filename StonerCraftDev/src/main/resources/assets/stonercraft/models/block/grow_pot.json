@@ -3,7 +3,8 @@
 	"credit": "Made with Blockbench",
 	"textures": {
 		"0": "stonercraft:block/grow_pot_texture",
-		"1": "minecraft:block/dirt"
+		"1": "minecraft:block/dirt",
+		"particle": "stonercraft:block/clay_texture_doniczka"
 	},
 	"elements": [
 		{

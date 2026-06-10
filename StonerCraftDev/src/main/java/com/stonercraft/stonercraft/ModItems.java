@@ -6,6 +6,7 @@ import com.stonercraft.stonercraft.items.PreloadedJointItem;
 import com.stonercraft.stonercraft.util.StonercraftCreativeTab;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -66,6 +67,26 @@ public class ModItems {
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
+    }
+
+    public static Item getSeedForStrain(StrainType strainType) {
+        return switch (strainType) {
+            case LEMON_HAZE -> LEMON_HAZE_SEED.get();
+            case AFGHAN_KUSH -> AFGHAN_KUSH_SEED.get();
+            case PURPLE_HAZE -> PURPLE_HAZE_SEED.get();
+            case WHITE_WIDOW -> WHITE_WIDOW_SEED.get();
+            default -> Items.AIR;
+        };
+    }
+
+    public static Item getBudForStrain(StrainType strainType) {
+        return switch (strainType) {
+            case LEMON_HAZE -> LEMON_HAZE_BUD.get();
+            case AFGHAN_KUSH -> AFGHAN_KUSH_BUD.get();
+            case PURPLE_HAZE -> PURPLE_HAZE_BUD.get();
+            case WHITE_WIDOW -> WHITE_WIDOW_BUD.get();
+            default -> Items.AIR;
+        };
     }
 
 }
