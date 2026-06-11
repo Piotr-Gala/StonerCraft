@@ -5,7 +5,6 @@ public enum StrainType {
     AFGHAN_KUSH("afghan_kush", "mountains", PlantGen.INDICA),
     PURPLE_HAZE("purple_haze", "swamp", PlantGen.SATIVA),
     WHITE_WIDOW("white_widow", "plains", PlantGen.HYBRID);
-    // Dodasz więcej...
 
     private final String id;
     private final String preferredBiome;
@@ -17,7 +16,15 @@ public enum StrainType {
         this.plantGen = plantGen;
     }
 
-    public String getId() { return id; }
-    public String getPreferredBiome() { return preferredBiome; }
-    public PlantGen getPlantGen() { return plantGen; }
+    public String getId() {
+        return id;
+    }
+
+    public String getPreferredBiome() {
+        return preferredBiome;
+    }
+
+    public PlantGen getPlantGen() {
+        return plantGen;
+    }
 }

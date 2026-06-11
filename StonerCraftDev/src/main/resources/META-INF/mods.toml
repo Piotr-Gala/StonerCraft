@@ -1,23 +1,29 @@
+# See https://docs.minecraftforge.net/en/1.21.x/gettingstarted/modfiles/#modstoml
+# There are lots of things you can do with the mods.toml, and not all fields are included with this MDK
+# References: https://github.com/MinecraftForge/MDKExamples
+
 modLoader="javafml"
-loaderVersion="[40,)"
+loaderVersion="[0,)"
 license="All Rights Reserved"
 
 [[mods]]
 modId="stonercraft"
 version="1.0.0"
 displayName="StonerCraft"
-description="""Grow, dry, and smoke — Stonercraft brings green life to Minecraft. Discover new plants, cultivate them on your farm, carefully dry your harvest, and enjoy a whole new chill gameplay loop inspired by laid-back stoner culture."""
+authors="Piotr Gala"
+
+description='''Grow, dry, and smoke - StonerCraft brings green life to Minecraft.'''
 
 [[dependencies.stonercraft]]
-modId="forge"
-mandatory=true
-versionRange="[40,)"
-ordering="NONE"
-side="BOTH"
+    modId="forge"
+    mandatory=true
+    versionRange="[0,)"
+    ordering="NONE"
+    side="BOTH"
 
 [[dependencies.stonercraft]]
-modId="minecraft"
-mandatory=true
-versionRange="[1.18.2,1.19)"
-ordering="NONE"
-side="BOTH"
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.21.1,1.22,)"
+    ordering="NONE"
+    side="BOTH"

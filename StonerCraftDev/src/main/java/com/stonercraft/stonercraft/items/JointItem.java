@@ -1,8 +1,9 @@
 package com.stonercraft.stonercraft.items;
 
 import com.stonercraft.stonercraft.util.StrainType;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
@@ -11,63 +12,70 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.*;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 public class JointItem extends Item {
+    private static final int MAX_BURN_TIME = 1200;
+    private static final int PUFF_BURN_COST = 150;
+    private static final int MAX_PUFFS = 8;
 
     private final StrainType strain;
 
     public JointItem(StrainType strain, Properties properties) {
         super(properties);
         this.strain = strain;
-
     }
-
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack joint = player.getItemInHand(hand);
+        CompoundTag data = getOrCreateData(joint);
 
-        if (!joint.hasTag()) joint.getOrCreateTag();
+        if (!data.getBoolean("lit")) {
+            InteractionHand lighterHand = getOtherHand(hand);
+            ItemStack lighter = player.getItemInHand(lighterHand);
+            if (lighter.is(Items.FLINT_AND_STEEL)) {
+                data.putBoolean("lit", true);
+                data.putInt("burnTime", MAX_BURN_TIME);
+                data.putInt("puffsUsed", 0);
+                setData(joint, data);
 
-        boolean lit = joint.getTag().getBoolean("lit");
-
-        if (!lit) {
-            // odpalanie jointa zapalniczką
-            ItemStack off = player.getOffhandItem();
-            if (off.getItem() == Items.FLINT_AND_STEEL) {
-                joint.getTag().putBoolean("lit", true);
-                joint.getTag().putInt("burnTime", 1200);
-                joint.getTag().putInt("puffsUsed", 0);
-
-                off.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
-                player.level.playSound(null, player.blockPosition(), SoundEvents.FLINTANDSTEEL_USE,
+                lighter.hurtAndBreak(1, player, LivingEntity.getSlotForHand(lighterHand));
+                level.playSound(null, player.blockPosition(), SoundEvents.FLINTANDSTEEL_USE,
                         player.getSoundSource(), 1.0F, 1.0F);
 
                 return InteractionResultHolder.success(joint);
             }
+
             return InteractionResultHolder.fail(joint);
-        } else {
-            player.startUsingItem(hand); // naciąganie jak łuk
-            return InteractionResultHolder.consume(joint);
         }
+
+        player.startUsingItem(hand);
+        return InteractionResultHolder.consume(joint);
     }
 
     @Override
     public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity entity) {
-        if (!(entity instanceof Player player)) return stack;
-        if (!stack.hasTag()) return stack;
+        if (!(entity instanceof Player player)) {
+            return stack;
+        }
 
-        int burnTime = stack.getTag().getInt("burnTime");
-        int puffsUsed = stack.getTag().getInt("puffsUsed");
+        CompoundTag data = getOrCreateData(stack);
+        int burnTime = data.getInt("burnTime");
+        int puffsUsed = data.getInt("puffsUsed");
 
-        if (burnTime >= 150 && puffsUsed < 8) {
-            stack.getTag().putInt("burnTime", burnTime - 150);
-            stack.getTag().putInt("puffsUsed", puffsUsed + 1);
+        if (burnTime >= PUFF_BURN_COST && puffsUsed < MAX_PUFFS) {
+            data.putInt("burnTime", burnTime - PUFF_BURN_COST);
+            data.putInt("puffsUsed", puffsUsed + 1);
+            setData(stack, data);
 
             switch (strain.getPlantGen()) {
                 case INDICA -> player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 200));
@@ -76,7 +84,9 @@ public class JointItem extends Item {
                 case RARE -> player.addEffect(new MobEffectInstance(MobEffects.LEVITATION, 100));
             }
 
-            if (puffsUsed + 1 >= 8) stack.shrink(1);
+            if (puffsUsed + 1 >= MAX_PUFFS) {
+                stack.shrink(1);
+            }
         }
 
         return stack;
@@ -84,32 +94,28 @@ public class JointItem extends Item {
 
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
-        if (!level.isClientSide && stack.hasTag() && stack.getTag().getBoolean("lit")) {
-            int burnTime = stack.getTag().getInt("burnTime");
+        CompoundTag data = getData(stack);
+        if (!level.isClientSide && data.getBoolean("lit") && level.getGameTime() % 50 == 0) {
+            int burnTime = data.getInt("burnTime");
+            int newBurnTime = burnTime - 50;
 
-            // zmniejszamy tylko raz na 10 ticków
-            if (level.getGameTime() % 50 == 0) {
-                int newBurnTime = burnTime - 50;
-                if (newBurnTime <= 0) {
-                    stack.shrink(1); // joint skończony
-                } else {
-                    stack.getTag().putInt("burnTime", newBurnTime);
-                }
+            if (newBurnTime <= 0) {
+                stack.shrink(1);
+            } else {
+                data.putInt("burnTime", newBurnTime);
+                setData(stack, data);
             }
         }
     }
 
-
-
     @Override
     public boolean isBarVisible(ItemStack stack) {
-        return stack.hasTag() && stack.getTag().getBoolean("lit");
+        return getData(stack).getBoolean("lit");
     }
 
     @Override
     public int getBarWidth(ItemStack stack) {
-        if (!stack.hasTag()) return 0;
-        return Math.round(13.0f * stack.getTag().getInt("burnTime") / 1200.0f);
+        return Math.round(13.0F * getData(stack).getInt("burnTime") / MAX_BURN_TIME);
     }
 
     @Override
@@ -119,26 +125,43 @@ public class JointItem extends Item {
 
     @Override
     public UseAnim getUseAnimation(ItemStack stack) {
-        return UseAnim.BOW; // naciąganie jak łuk
+        return UseAnim.BOW;
     }
 
     @Override
-    public int getUseDuration(ItemStack stack) {
-        return 20; // ok. 1 sekundy naciągania
+    public int getUseDuration(ItemStack stack, LivingEntity entity) {
+        return 20;
     }
 
     @Override
     public Component getName(ItemStack stack) {
-        return new TextComponent(strain.getId().replace("_", " ") + " Joint");
+        return Component.literal(strain.getId().replace("_", " ") + " Joint");
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(new TextComponent("Strain: " + strain.getId()));
-        tooltip.add(new TextComponent("Type: " + strain.getPlantGen().name()));
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        tooltip.add(Component.literal("Strain: " + strain.getId()));
+        tooltip.add(Component.literal("Type: " + strain.getPlantGen().name()));
     }
 
     public StrainType getStrainType() {
         return strain;
+    }
+
+    private static CompoundTag getData(ItemStack stack) {
+        CustomData customData = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
+        return customData.copyTag();
+    }
+
+    private static CompoundTag getOrCreateData(ItemStack stack) {
+        return getData(stack);
+    }
+
+    private static void setData(ItemStack stack, CompoundTag data) {
+        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(data));
+    }
+
+    private static InteractionHand getOtherHand(InteractionHand hand) {
+        return hand == InteractionHand.MAIN_HAND ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
     }
 }
