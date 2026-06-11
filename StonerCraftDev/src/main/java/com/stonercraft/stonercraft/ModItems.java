@@ -11,58 +11,71 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 public class ModItems {
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(ForgeRegistries.ITEMS, StonerCraft.MODID);
 
-    public static final RegistryObject<Item> JOINT_LEMON_HAZE = ITEMS.register("joint_lemon_haze",
-            () -> new JointItem(StrainType.LEMON_HAZE, new Item.Properties().stacksTo(1)));
-    public static final RegistryObject<Item> JOINT_AFGHAN_KUSH = ITEMS.register("joint_afghan_kush",
-            () -> new JointItem(StrainType.AFGHAN_KUSH, new Item.Properties().stacksTo(1)));
-    public static final RegistryObject<Item> JOINT_PURPLE_HAZE = ITEMS.register("joint_purple_haze",
-            () -> new JointItem(StrainType.PURPLE_HAZE, new Item.Properties().stacksTo(1)));
-    public static final RegistryObject<Item> JOINT_WHITE_WIDOW = ITEMS.register("joint_white_widow",
-            () -> new JointItem(StrainType.WHITE_WIDOW, new Item.Properties().stacksTo(1)));
+    private static final Map<StrainType, RegistryObject<Item>> SEEDS = new EnumMap<>(StrainType.class);
+    private static final Map<StrainType, RegistryObject<Item>> BUDS = new EnumMap<>(StrainType.class);
+    private static final Map<StrainType, RegistryObject<Item>> JOINTS = new EnumMap<>(StrainType.class);
 
-    public static final RegistryObject<Item> LEMON_HAZE_SEED = ITEMS.register("lemon_haze_seed",
-            () -> new SeedItem(StrainType.LEMON_HAZE, new Item.Properties()));
-    public static final RegistryObject<Item> AFGHAN_KUSH_SEED = ITEMS.register("afghan_kush_seed",
-            () -> new SeedItem(StrainType.AFGHAN_KUSH, new Item.Properties()));
-    public static final RegistryObject<Item> PURPLE_HAZE_SEED = ITEMS.register("purple_haze_seed",
-            () -> new SeedItem(StrainType.PURPLE_HAZE, new Item.Properties()));
-    public static final RegistryObject<Item> WHITE_WIDOW_SEED = ITEMS.register("white_widow_seed",
-            () -> new SeedItem(StrainType.WHITE_WIDOW, new Item.Properties()));
+    public static final RegistryObject<Item> JOINT_LEMON_HAZE = registerJoint(StrainType.LEMON_HAZE);
+    public static final RegistryObject<Item> JOINT_AFGHAN_KUSH = registerJoint(StrainType.AFGHAN_KUSH);
+    public static final RegistryObject<Item> JOINT_PURPLE_HAZE = registerJoint(StrainType.PURPLE_HAZE);
+    public static final RegistryObject<Item> JOINT_WHITE_WIDOW = registerJoint(StrainType.WHITE_WIDOW);
 
-    public static final RegistryObject<Item> LEMON_HAZE_BUD = ITEMS.register("lemon_haze_bud",
-            () -> new BudItem(StrainType.LEMON_HAZE, new Item.Properties()));
-    public static final RegistryObject<Item> AFGHAN_KUSH_BUD = ITEMS.register("afghan_kush_bud",
-            () -> new BudItem(StrainType.AFGHAN_KUSH, new Item.Properties()));
-    public static final RegistryObject<Item> PURPLE_HAZE_BUD = ITEMS.register("purple_haze_bud",
-            () -> new BudItem(StrainType.PURPLE_HAZE, new Item.Properties()));
-    public static final RegistryObject<Item> WHITE_WIDOW_BUD = ITEMS.register("white_widow_bud",
-            () -> new BudItem(StrainType.WHITE_WIDOW, new Item.Properties()));
+    public static final RegistryObject<Item> LEMON_HAZE_SEED = registerSeed(StrainType.LEMON_HAZE);
+    public static final RegistryObject<Item> AFGHAN_KUSH_SEED = registerSeed(StrainType.AFGHAN_KUSH);
+    public static final RegistryObject<Item> PURPLE_HAZE_SEED = registerSeed(StrainType.PURPLE_HAZE);
+    public static final RegistryObject<Item> WHITE_WIDOW_SEED = registerSeed(StrainType.WHITE_WIDOW);
+
+    public static final RegistryObject<Item> LEMON_HAZE_BUD = registerBud(StrainType.LEMON_HAZE);
+    public static final RegistryObject<Item> AFGHAN_KUSH_BUD = registerBud(StrainType.AFGHAN_KUSH);
+    public static final RegistryObject<Item> PURPLE_HAZE_BUD = registerBud(StrainType.PURPLE_HAZE);
+    public static final RegistryObject<Item> WHITE_WIDOW_BUD = registerBud(StrainType.WHITE_WIDOW);
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }
 
     public static Item getSeedForStrain(StrainType strainType) {
-        return switch (strainType) {
-            case LEMON_HAZE -> LEMON_HAZE_SEED.get();
-            case AFGHAN_KUSH -> AFGHAN_KUSH_SEED.get();
-            case PURPLE_HAZE -> PURPLE_HAZE_SEED.get();
-            case WHITE_WIDOW -> WHITE_WIDOW_SEED.get();
-            default -> Items.AIR;
-        };
+        return getItemForStrain(SEEDS, strainType);
     }
 
     public static Item getBudForStrain(StrainType strainType) {
-        return switch (strainType) {
-            case LEMON_HAZE -> LEMON_HAZE_BUD.get();
-            case AFGHAN_KUSH -> AFGHAN_KUSH_BUD.get();
-            case PURPLE_HAZE -> PURPLE_HAZE_BUD.get();
-            case WHITE_WIDOW -> WHITE_WIDOW_BUD.get();
-            default -> Items.AIR;
-        };
+        return getItemForStrain(BUDS, strainType);
+    }
+
+    public static Item getJointForStrain(StrainType strainType) {
+        return getItemForStrain(JOINTS, strainType);
+    }
+
+    private static RegistryObject<Item> registerSeed(StrainType strainType) {
+        RegistryObject<Item> item = ITEMS.register(strainType.getSeedItemId(),
+                () -> new SeedItem(strainType, new Item.Properties()));
+        SEEDS.put(strainType, item);
+        return item;
+    }
+
+    private static RegistryObject<Item> registerBud(StrainType strainType) {
+        RegistryObject<Item> item = ITEMS.register(strainType.getBudItemId(),
+                () -> new BudItem(strainType, new Item.Properties()));
+        BUDS.put(strainType, item);
+        return item;
+    }
+
+    private static RegistryObject<Item> registerJoint(StrainType strainType) {
+        RegistryObject<Item> item = ITEMS.register(strainType.getJointItemId(),
+                () -> new JointItem(strainType, new Item.Properties().stacksTo(1)));
+        JOINTS.put(strainType, item);
+        return item;
+    }
+
+    private static Item getItemForStrain(Map<StrainType, RegistryObject<Item>> items, StrainType strainType) {
+        RegistryObject<Item> item = items.get(strainType);
+        return item != null ? item.get() : Items.AIR;
     }
 }

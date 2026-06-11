@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "B",
+    "P"
+  ],
+  "key": {
+    "B": {
+      "item": "stonercraft:afghan_kush_bud"
+    },
+    "P": {
+      "item": "minecraft:paper"
+    }
+  },
+  "result": {
+    "id": "stonercraft:joint_afghan_kush",
+    "count": 1
+  }
+}

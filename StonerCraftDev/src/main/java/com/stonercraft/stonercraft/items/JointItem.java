@@ -26,6 +26,8 @@ public class JointItem extends Item {
     private static final int MAX_BURN_TIME = 1200;
     private static final int PUFF_BURN_COST = 150;
     private static final int MAX_PUFFS = 8;
+    private static final int BASE_EFFECT_DURATION = 600;
+    private static final int EFFECT_DURATION_PER_PUFF = 300;
 
     private final StrainType strain;
 
@@ -44,7 +46,7 @@ public class JointItem extends Item {
             ItemStack lighter = player.getItemInHand(lighterHand);
             if (lighter.is(Items.FLINT_AND_STEEL)) {
                 data.putBoolean("lit", true);
-                data.putInt("burnTime", MAX_BURN_TIME);
+                data.putLong("litStartTime", level.getGameTime());
                 data.putInt("puffsUsed", 0);
                 setData(joint, data);
 
@@ -58,6 +60,13 @@ public class JointItem extends Item {
             return InteractionResultHolder.fail(joint);
         }
 
+        if (isBurnedOut(data, level.getGameTime())) {
+            if (!level.isClientSide) {
+                joint.shrink(1);
+            }
+            return InteractionResultHolder.success(joint);
+        }
+
         player.startUsingItem(hand);
         return InteractionResultHolder.consume(joint);
     }
@@ -69,22 +78,16 @@ public class JointItem extends Item {
         }
 
         CompoundTag data = getOrCreateData(stack);
-        int burnTime = data.getInt("burnTime");
         int puffsUsed = data.getInt("puffsUsed");
 
-        if (burnTime >= PUFF_BURN_COST && puffsUsed < MAX_PUFFS) {
-            data.putInt("burnTime", burnTime - PUFF_BURN_COST);
-            data.putInt("puffsUsed", puffsUsed + 1);
+        if (data.getBoolean("lit") && getRemainingBurnTime(data, level.getGameTime()) > 0 && puffsUsed < MAX_PUFFS) {
+            int nextPuffsUsed = puffsUsed + 1;
+            data.putInt("puffsUsed", nextPuffsUsed);
             setData(stack, data);
 
-            switch (strain.getPlantGen()) {
-                case INDICA -> player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 200));
-                case SATIVA -> player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 200, 1));
-                case HYBRID -> player.addEffect(new MobEffectInstance(MobEffects.JUMP, 200, 1));
-                case RARE -> player.addEffect(new MobEffectInstance(MobEffects.LEVITATION, 100));
-            }
+            applyPuffEffect(player, nextPuffsUsed);
 
-            if (puffsUsed + 1 >= MAX_PUFFS) {
+            if (nextPuffsUsed >= MAX_PUFFS || isBurnedOut(data, level.getGameTime())) {
                 stack.shrink(1);
             }
         }
@@ -95,16 +98,8 @@ public class JointItem extends Item {
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
         CompoundTag data = getData(stack);
-        if (!level.isClientSide && data.getBoolean("lit") && level.getGameTime() % 50 == 0) {
-            int burnTime = data.getInt("burnTime");
-            int newBurnTime = burnTime - 50;
-
-            if (newBurnTime <= 0) {
-                stack.shrink(1);
-            } else {
-                data.putInt("burnTime", newBurnTime);
-                setData(stack, data);
-            }
+        if (!level.isClientSide && data.getBoolean("lit") && isBurnedOut(data, level.getGameTime())) {
+            stack.shrink(1);
         }
     }
 
@@ -115,7 +110,9 @@ public class JointItem extends Item {
 
     @Override
     public int getBarWidth(ItemStack stack) {
-        return Math.round(13.0F * getData(stack).getInt("burnTime") / MAX_BURN_TIME);
+        CompoundTag data = getData(stack);
+        int usedBurnTime = data.getInt("puffsUsed") * PUFF_BURN_COST;
+        return Math.round(13.0F * (MAX_BURN_TIME - usedBurnTime) / MAX_BURN_TIME);
     }
 
     @Override
@@ -148,6 +145,39 @@ public class JointItem extends Item {
         return strain;
     }
 
+    public static boolean isLit(ItemStack stack) {
+        return getData(stack).getBoolean("lit");
+    }
+
+    private void applyPuffEffect(Player player, int puffsUsed) {
+        int duration = BASE_EFFECT_DURATION + (puffsUsed * EFFECT_DURATION_PER_PUFF);
+        int shortDuration = duration / 3;
+        int hungerAmplifier = Math.min((puffsUsed - 1) / 3, 2);
+        int mildAmplifier = Math.min((puffsUsed - 1) / 4, 1);
+        int strongAmplifier = Math.min((puffsUsed - 1) / 3, 1);
+
+        player.addEffect(new MobEffectInstance(MobEffects.HUNGER, duration, hungerAmplifier));
+
+        switch (strain) {
+            case LEMON_HAZE -> {
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, duration, mildAmplifier));
+                player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, shortDuration));
+            }
+            case AFGHAN_KUSH -> {
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, mildAmplifier));
+                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, shortDuration));
+            }
+            case PURPLE_HAZE -> {
+                player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, duration / 2, strongAmplifier));
+                player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, shortDuration, mildAmplifier));
+            }
+            case WHITE_WIDOW -> {
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, shortDuration));
+                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, shortDuration, mildAmplifier));
+            }
+        }
+    }
+
     private static CompoundTag getData(ItemStack stack) {
         CustomData customData = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
         return customData.copyTag();
@@ -159,6 +189,16 @@ public class JointItem extends Item {
 
     private static void setData(ItemStack stack, CompoundTag data) {
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(data));
+    }
+
+    private static int getRemainingBurnTime(CompoundTag data, long currentGameTime) {
+        long elapsed = currentGameTime - data.getLong("litStartTime");
+        int burnPenalty = data.getInt("puffsUsed") * PUFF_BURN_COST;
+        return (int) (MAX_BURN_TIME - elapsed - burnPenalty);
+    }
+
+    private static boolean isBurnedOut(CompoundTag data, long currentGameTime) {
+        return getRemainingBurnTime(data, currentGameTime) <= 0;
     }
 
     private static InteractionHand getOtherHand(InteractionHand hand) {
