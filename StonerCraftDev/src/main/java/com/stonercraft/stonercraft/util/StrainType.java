@@ -20,6 +20,18 @@ public enum StrainType {
         return id;
     }
 
+    public String getSeedItemId() {
+        return id + "_seed";
+    }
+
+    public String getBudItemId() {
+        return id + "_bud";
+    }
+
+    public String getJointItemId() {
+        return "joint_" + id;
+    }
+
     public String getPreferredBiome() {
         return preferredBiome;
     }
