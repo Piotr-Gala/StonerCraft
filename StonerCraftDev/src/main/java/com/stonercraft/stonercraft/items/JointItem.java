@@ -26,6 +26,8 @@ public class JointItem extends Item {
     private static final int MAX_BURN_TIME = 1200;
     private static final int PUFF_BURN_COST = 150;
     private static final int MAX_PUFFS = 8;
+    private static final int BASE_EFFECT_DURATION = 600;
+    private static final int EFFECT_DURATION_PER_PUFF = 300;
 
     private final StrainType strain;
 
@@ -83,12 +85,7 @@ public class JointItem extends Item {
             data.putInt("puffsUsed", nextPuffsUsed);
             setData(stack, data);
 
-            switch (strain.getPlantGen()) {
-                case INDICA -> player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 200));
-                case SATIVA -> player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 200, 1));
-                case HYBRID -> player.addEffect(new MobEffectInstance(MobEffects.JUMP, 200, 1));
-                case RARE -> player.addEffect(new MobEffectInstance(MobEffects.LEVITATION, 100));
-            }
+            applyPuffEffect(player, nextPuffsUsed);
 
             if (nextPuffsUsed >= MAX_PUFFS || isBurnedOut(data, level.getGameTime())) {
                 stack.shrink(1);
@@ -146,6 +143,39 @@ public class JointItem extends Item {
 
     public StrainType getStrainType() {
         return strain;
+    }
+
+    public static boolean isLit(ItemStack stack) {
+        return getData(stack).getBoolean("lit");
+    }
+
+    private void applyPuffEffect(Player player, int puffsUsed) {
+        int duration = BASE_EFFECT_DURATION + (puffsUsed * EFFECT_DURATION_PER_PUFF);
+        int shortDuration = duration / 3;
+        int hungerAmplifier = Math.min((puffsUsed - 1) / 3, 2);
+        int mildAmplifier = Math.min((puffsUsed - 1) / 4, 1);
+        int strongAmplifier = Math.min((puffsUsed - 1) / 3, 1);
+
+        player.addEffect(new MobEffectInstance(MobEffects.HUNGER, duration, hungerAmplifier));
+
+        switch (strain) {
+            case LEMON_HAZE -> {
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, duration, mildAmplifier));
+                player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, shortDuration));
+            }
+            case AFGHAN_KUSH -> {
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, mildAmplifier));
+                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, shortDuration));
+            }
+            case PURPLE_HAZE -> {
+                player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, duration / 2, strongAmplifier));
+                player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, shortDuration, mildAmplifier));
+            }
+            case WHITE_WIDOW -> {
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, shortDuration));
+                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, shortDuration, mildAmplifier));
+            }
+        }
     }
 
     private static CompoundTag getData(ItemStack stack) {
