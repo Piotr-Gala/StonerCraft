@@ -44,7 +44,7 @@ public class JointItem extends Item {
             ItemStack lighter = player.getItemInHand(lighterHand);
             if (lighter.is(Items.FLINT_AND_STEEL)) {
                 data.putBoolean("lit", true);
-                data.putInt("burnTime", MAX_BURN_TIME);
+                data.putLong("litStartTime", level.getGameTime());
                 data.putInt("puffsUsed", 0);
                 setData(joint, data);
 
@@ -58,6 +58,13 @@ public class JointItem extends Item {
             return InteractionResultHolder.fail(joint);
         }
 
+        if (isBurnedOut(data, level.getGameTime())) {
+            if (!level.isClientSide) {
+                joint.shrink(1);
+            }
+            return InteractionResultHolder.success(joint);
+        }
+
         player.startUsingItem(hand);
         return InteractionResultHolder.consume(joint);
     }
@@ -69,12 +76,11 @@ public class JointItem extends Item {
         }
 
         CompoundTag data = getOrCreateData(stack);
-        int burnTime = data.getInt("burnTime");
         int puffsUsed = data.getInt("puffsUsed");
 
-        if (burnTime >= PUFF_BURN_COST && puffsUsed < MAX_PUFFS) {
-            data.putInt("burnTime", burnTime - PUFF_BURN_COST);
-            data.putInt("puffsUsed", puffsUsed + 1);
+        if (data.getBoolean("lit") && getRemainingBurnTime(data, level.getGameTime()) > 0 && puffsUsed < MAX_PUFFS) {
+            int nextPuffsUsed = puffsUsed + 1;
+            data.putInt("puffsUsed", nextPuffsUsed);
             setData(stack, data);
 
             switch (strain.getPlantGen()) {
@@ -84,7 +90,7 @@ public class JointItem extends Item {
                 case RARE -> player.addEffect(new MobEffectInstance(MobEffects.LEVITATION, 100));
             }
 
-            if (puffsUsed + 1 >= MAX_PUFFS) {
+            if (nextPuffsUsed >= MAX_PUFFS || isBurnedOut(data, level.getGameTime())) {
                 stack.shrink(1);
             }
         }
@@ -95,16 +101,8 @@ public class JointItem extends Item {
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
         CompoundTag data = getData(stack);
-        if (!level.isClientSide && data.getBoolean("lit") && level.getGameTime() % 50 == 0) {
-            int burnTime = data.getInt("burnTime");
-            int newBurnTime = burnTime - 50;
-
-            if (newBurnTime <= 0) {
-                stack.shrink(1);
-            } else {
-                data.putInt("burnTime", newBurnTime);
-                setData(stack, data);
-            }
+        if (!level.isClientSide && data.getBoolean("lit") && isBurnedOut(data, level.getGameTime())) {
+            stack.shrink(1);
         }
     }
 
@@ -115,7 +113,9 @@ public class JointItem extends Item {
 
     @Override
     public int getBarWidth(ItemStack stack) {
-        return Math.round(13.0F * getData(stack).getInt("burnTime") / MAX_BURN_TIME);
+        CompoundTag data = getData(stack);
+        int usedBurnTime = data.getInt("puffsUsed") * PUFF_BURN_COST;
+        return Math.round(13.0F * (MAX_BURN_TIME - usedBurnTime) / MAX_BURN_TIME);
     }
 
     @Override
@@ -159,6 +159,16 @@ public class JointItem extends Item {
 
     private static void setData(ItemStack stack, CompoundTag data) {
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(data));
+    }
+
+    private static int getRemainingBurnTime(CompoundTag data, long currentGameTime) {
+        long elapsed = currentGameTime - data.getLong("litStartTime");
+        int burnPenalty = data.getInt("puffsUsed") * PUFF_BURN_COST;
+        return (int) (MAX_BURN_TIME - elapsed - burnPenalty);
+    }
+
+    private static boolean isBurnedOut(CompoundTag data, long currentGameTime) {
+        return getRemainingBurnTime(data, currentGameTime) <= 0;
     }
 
     private static InteractionHand getOtherHand(InteractionHand hand) {
